@@ -115,22 +115,17 @@
       overflow: hidden;
     }
     .hero-slide {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      transition: opacity 1s ease;
-      pointer-events: none; /* 👈 FIX: Inactive slides won't intercept clicks */
+     position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none; /* Prevents clicking invisible slides */
+  visibility: hidden;   /* Removes invisible slides from screen readers */
+  transition: opacity 1s ease, visibility 1s;
     }
     .hero-slide.active { 
-      opacity: 1; 
-      pointer-events: auto; /* 👈 FIX: Active slide accepts clicks */
-    }
-    .hero-bg {
-      position: absolute;
-      inset: 0;
-      background-size: cover;
-      background-position: center;
-      filter: saturate(1.05);
+      opacity: 1;
+  pointer-events: auto; /* Re-enables clicking for the active slide */
+  visibility: visible;
     }
     .hero-grad {
       position: absolute;
@@ -207,7 +202,6 @@
       display: flex;
       justify-content: center;
       gap: 6px;
-      z-index: 10;
     }
     .hero-dots button {
       width: 24px;
@@ -496,7 +490,7 @@
   <main id="app" role="main"></main>
 
   <footer role="contentinfo">
-    <p>©️ <span id="yr"></span> CineStream · Data by <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">TMDB</a> · Streaming embeds via streamimdb.ru — content not hosted here.</p>
+    <p>© <span id="yr"></span> CineStream · Data by <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">TMDB</a> · Streaming embeds via streamimdb.ru — content not hosted here.</p>
   </footer>
 
   <div class="toast-container" id="toastContainer" role="status" aria-live="polite"></div>
@@ -509,9 +503,12 @@
       //  CONFIG
       // ========================================================================
       const CONFIG = {
+        // ⚠️ Replace with your own key, or better: proxy through your backend!
         TMDB_KEY: '705c91ec231b594b8c6fa21665e801a7',
         TMDB_BASE: 'https://api.themoviedb.org/3',
         IMG_BASE: 'https://image.tmdb.org/t/p/',
+        // If you set USE_PROXY to true, prepend '/api/tmdb' to all requests
+        // (you'd need to implement that backend). For demo, keep false.
         USE_PROXY: false,
         PROXY_URL: '/api/tmdb',
         DEFAULT_IMAGE_SIZE: 'w500',
@@ -540,17 +537,17 @@
 
       function showToast(message, duration = 3000) {
         const container = document.getElementById('toastContainer');
-        const toast = el(<div class="toast">${message}</div>);
+        const toast = el(`<div class="toast">${message}</div>`);
         container.appendChild(toast);
         setTimeout(() => { toast.remove(); }, duration);
       }
 
       function imgUrl(path, size = CONFIG.DEFAULT_IMAGE_SIZE) {
-        return path ? ${CONFIG.IMG_BASE}${size}${path} : '';
+        return path ? `${CONFIG.IMG_BASE}${size}${path}` : '';
       }
 
       function backdropUrl(path) {
-        return path ? ${CONFIG.IMG_BASE}${CONFIG.BACKDROP_SIZE}${path} : '';
+        return path ? `${CONFIG.IMG_BASE}${CONFIG.BACKDROP_SIZE}${path}` : '';
       }
 
       function normalizeItem(r, forcedType) {
@@ -585,7 +582,7 @@
             if (v !== undefined && v !== '') url.searchParams.set(k, v);
           }
           const res = await fetch(url);
-          if (!res.ok) throw new Error(TMDB error ${res.status});
+          if (!res.ok) throw new Error(`TMDB error ${res.status}`);
           return res.json();
         },
         async getTrending() {
@@ -607,7 +604,7 @@
         async getDiscover(type, page = 1, genre = null) {
           const params = { sort_by: 'popularity.desc', 'vote_count.gte': 50, page };
           if (genre) params.with_genres = genre;
-          const data = await this.fetch(/discover/${type}, params);
+          const data = await this.fetch(`/discover/${type}`, params);
           return {
             results: data.results.map(r => normalizeItem(r, type)).filter(Boolean),
             total_pages: data.total_pages,
@@ -615,7 +612,7 @@
           };
         },
         async getGenres(type) {
-          const data = await this.fetch(/genre/${type}/list);
+          const data = await this.fetch(`/genre/${type}/list`);
           return data.genres || [];
         },
         async getByGenre(type, genreId, page = 1) {
@@ -635,7 +632,7 @@
           }
         },
         async getDetails(type, id) {
-          return this.fetch(/${type}/${id}, { append_to_response: 'credits,external_ids,similar' });
+          return this.fetch(`/${type}/${id}`, { append_to_response: 'credits,external_ids,similar' });
         },
       };
 
@@ -659,10 +656,10 @@
           const idx = list.findIndex(x => x.type === item.type && x.id === item.id);
           if (idx >= 0) {
             list.splice(idx, 1);
-            showToast(Removed "${item.title}" from My List);
+            showToast(`Removed "${item.title}" from My List`);
           } else {
             list.unshift({ id: item.id, type: item.type, title: item.title, poster: item.poster, year: item.year, rating: item.rating });
-            showToast(Added "${item.title}" to My List);
+            showToast(`Added "${item.title}" to My List`);
           }
           this.save(list);
           return list;
@@ -703,16 +700,16 @@
       function Card(item, lazy = true) {
         const a = document.createElement('a');
         a.className = 'card';
-        a.href = #/title/${item.type}/${item.id};
+        a.href = `#/title/${item.type}/${item.id}`;
         a.setAttribute('role', 'article');
-        a.setAttribute('aria-label', ${item.title} (${item.year}));
+        a.setAttribute('aria-label', `${item.title} (${item.year})`);
 
         const posterDiv = document.createElement('div');
         posterDiv.className = 'poster';
         if (item.poster) {
           const img = document.createElement('img');
           img.src = item.poster;
-          img.alt = ${item.title} poster;
+          img.alt = `${item.title} poster`;
           if (lazy) img.loading = 'lazy';
           posterDiv.appendChild(img);
         } else {
@@ -759,7 +756,7 @@
         `);
         const scroller = $('.row-scroller', section);
         for (let i = 0; i < count; i++) {
-          const card = el(<div class="card"><div class="poster skeleton"></div><div class="info"><div class="title skeleton" style="height:12px;border-radius:4px"></div><div class="sub" style="margin-top:8px"><span class="skeleton" style="height:10px;width:60%;border-radius:4px"></span></div></div></div>);
+          const card = el(`<div class="card"><div class="poster skeleton"></div><div class="info"><div class="title skeleton" style="height:12px;border-radius:4px"></div><div class="sub" style="margin-top:8px"><span class="skeleton" style="height:10px;width:60%;border-radius:4px"></span></div></div></div>`);
           scroller.appendChild(card);
         }
         return section;
@@ -832,7 +829,7 @@
 
             const dot = document.createElement('button');
             dot.setAttribute('role', 'tab');
-            dot.setAttribute('aria-label', Slide ${index + 1}: ${item.title});
+            dot.setAttribute('aria-label', `Slide ${index + 1}: ${item.title}`);
             dot.className = index === 0 ? 'active' : '';
             dot.addEventListener('click', () => showSlide(index));
             dotsContainer.appendChild(dot);
@@ -856,7 +853,6 @@
             // Pause on hover
             hero.addEventListener('mouseenter', () => clearInterval(interval));
             hero.addEventListener('mouseleave', () => {
-              // 👉 FIX: Reassign original reference instead of spawning duplicate tasks
               interval = setInterval(() => {
                 showSlide((currentSlide + 1) % totalSlides);
               }, 6000);
@@ -871,7 +867,7 @@
           rowsContainer.appendChild(Row('Top Rated Movies', topRated.slice(0, 18)));
 
         } catch (err) {
-          rowsContainer.innerHTML = <p style="color:var(--muted);padding:20px">Failed to load content: ${err.message}</p>;
+          rowsContainer.innerHTML = `<p style="color:var(--muted);padding:20px">Failed to load content: ${err.message}</p>`;
         }
       };
 
@@ -970,7 +966,7 @@
           const grid = $('#g');
           items.forEach(item => grid.appendChild(Card(item)));
         } catch (err) {
-          $('#g').outerHTML = <p style="color:var(--muted)">Failed to load trending: ${err.message}</p>;
+          $('#g').outerHTML = `<p style="color:var(--muted)">Failed to load trending: ${err.message}</p>`;
         }
       };
 
@@ -986,19 +982,21 @@
         `;
         const grid = $('#g');
         if (!items.length) {
-          grid.outerHTML = <p style="color:var(--muted)">Nothing saved yet — explore and tap “Add to My List”.</p>;
+          grid.outerHTML = `<p style="color:var(--muted)">Nothing saved yet — explore and tap “Add to My List”.</p>`;
           return;
         }
         items.forEach(item => {
           const card = Card(item);
+          // Add a remove button?
           const removeBtn = document.createElement('button');
           removeBtn.textContent = '✕';
           removeBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(0,0,0,.7);border-radius:50%;width:28px;height:28px;font-size:14px;color:#fff;border:1px solid var(--border);';
-          removeBtn.setAttribute('aria-label', Remove ${item.title} from list);
+          removeBtn.setAttribute('aria-label', `Remove ${item.title} from list`);
           removeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             e.preventDefault();
             Store.toggle(item);
+            // Re-render list
             Pages.myList();
           });
           card.querySelector('.poster').appendChild(removeBtn);
@@ -1011,7 +1009,7 @@
         app.innerHTML = `
           <div class="container page">
             <h1>Search</h1>
-            <p class="sub">${query ? Results for “${query}” : 'Type something to search'}</p>
+            <p class="sub">${query ? `Results for “${query}”` : 'Type something to search'}</p>
             <div class="grid" id="g" role="list"></div>
           </div>
         `;
@@ -1020,12 +1018,12 @@
           const items = await TMDB.search(query);
           const grid = $('#g');
           if (!items.length) {
-            grid.outerHTML = <p style="color:var(--muted)">No results found.</p>;
+            grid.outerHTML = `<p style="color:var(--muted)">No results found.</p>`;
             return;
           }
           items.forEach(item => grid.appendChild(Card(item)));
         } catch (err) {
-          $('#g').outerHTML = <p style="color:var(--muted)">Search failed: ${err.message}</p>;
+          $('#g').outerHTML = `<p style="color:var(--muted)">Search failed: ${err.message}</p>`;
         }
       };
 
@@ -1061,13 +1059,14 @@
 
           const saved = Store.has(type, id);
 
+          // Build detail view
           const bg = $('.detail-bg .bg');
           bg.className = 'bg';
-          bg.style.backgroundImage = url('${item.backdrop}');
+          bg.style.backgroundImage = `url('${item.backdrop}')`;
 
           const poster = $('.detail-poster');
           poster.className = 'detail-poster';
-          poster.style.backgroundImage = url('${item.poster}');
+          poster.style.backgroundImage = `url('${item.poster}')`;
 
           const detail = $('.detail');
           detail.innerHTML = `
@@ -1076,16 +1075,16 @@
             <div class="meta">
               <span class="pill">★ ${item.rating}</span>
               <span class="pill">${item.year || '—'}</span>
-              ${item.runtime ? <span class="pill">${Math.floor(item.runtime/60) ? Math.floor(item.runtime/60)+'h ' : ''}${item.runtime%60}m</span> : ''}
-              ${item.seasons ? <span class="pill">${item.seasons} season${item.seasons>1?'s':''}</span> : ''}
-              ${item.genres.slice(0,3).map(g => <span class="pill">${g}</span>).join('')}
+              ${item.runtime ? `<span class="pill">${Math.floor(item.runtime/60) ? Math.floor(item.runtime/60)+'h ' : ''}${item.runtime%60}m</span>` : ''}
+              ${item.seasons ? `<span class="pill">${item.seasons} season${item.seasons>1?'s':''}</span>` : ''}
+              ${item.genres.slice(0,3).map(g => `<span class="pill">${g}</span>`).join('')}
             </div>
             <p style="color:#dcdcdc;max-width:720px">${item.overview}</p>
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
-              ${item.imdb ? <a class="btn btn-primary" href="#/watch/${type}/${item.imdb}">▶️ Play</a> : <span class="btn btn-ghost" style="opacity:.6">Player unavailable</span>}
+              ${item.imdb ? `<a class="btn btn-primary" href="#/watch/${type}/${item.imdb}">▶️ Play</a>` : `<span class="btn btn-ghost" style="opacity:.6">Player unavailable</span>`}
               <button class="btn btn-ghost" id="saveBtn">${saved ? '✓ In My List' : '＋ Add to My List'}</button>
             </div>
-            ${item.cast.length ? <p class="cast"><b style="color:#fff">Cast:</b> ${item.cast.join(', ')}</p> : ''}
+            ${item.cast.length ? `<p class="cast"><b style="color:#fff">Cast:</b> ${item.cast.join(', ')}</p>` : ''}
           `;
 
           const saveBtn = $('#saveBtn', detail);
@@ -1095,6 +1094,7 @@
             saveBtn.textContent = nowSaved ? '✓ In My List' : '＋ Add to My List';
           });
 
+          // Similar
           const similarItems = (data.similar?.results || []).map(r => normalizeItem(r, type)).filter(Boolean).slice(0, 18);
           const similarContainer = $('#similarRow');
           if (similarItems.length) {
@@ -1149,6 +1149,7 @@
           if (spinner) spinner.remove();
         });
 
+        // Fallback: if iframe fails to load within 10s, show error
         setTimeout(() => {
           if (spinner) {
             spinner.innerHTML = `
@@ -1172,6 +1173,7 @@
         const app = document.getElementById('app');
         try {
           const { path, segs, params } = parseRoute();
+          // Update nav active
           const activeRoute = '/' + (segs[0] || '');
           $$('.nav-link').forEach(a => {
             a.classList.toggle('active', a.dataset.route === activeRoute || (activeRoute.startsWith('/title') && a.dataset.route === '/'));
@@ -1220,14 +1222,17 @@
       searchInput.addEventListener('input', debounce((e) => {
         const q = e.target.value.trim();
         if (q.length > 2) {
-          navigate(#/search?q=${encodeURIComponent(q)});
+          navigate(`#/search?q=${encodeURIComponent(q)}`);
+        } else if (q === '') {
+          // Optionally go home? We'll leave as is.
         }
       }, 400));
 
+      // Also allow enter to submit immediately
       document.querySelector('.search').addEventListener('submit', (e) => {
         e.preventDefault();
         const q = searchInput.value.trim();
-        if (q) navigate(#/search?q=${encodeURIComponent(q)});
+        if (q) navigate(`#/search?q=${encodeURIComponent(q)}`);
       });
 
       // ========================================================================
@@ -1239,6 +1244,9 @@
         render();
       });
 
+      // ========================================================================
+      //  KEYBOARD SHORTCUT: focus search with "/"
+      // ========================================================================
       document.addEventListener('keydown', (e) => {
         if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
           e.preventDefault();
